@@ -1,12 +1,17 @@
-
 //##########################################################
 //
-//  S N A K E 
-//  S N A K E 
-//  S N A K E 
+//  DDDD    RRRR       AAA       GGG       OOO      N   N
+//  D   D   R   R     A   A     G   G     O   O     N   N
+//  D   D   R  R      A   A     G         O   O     NN  N
+//  D   D   RRR       AAAAA     G         O   O     N N N
+//  D   D   R  R      A   A     G  GG     O   O     N  NN
+//  D   D   R   R     A   A     G   G     O   O     N   N
+//  DDDD    R    R    A   A      GGG       OOO      N   N
 //
-// v1.3
 //##########################################################
+//
+// v1.0
+//
 // This #include statement was automatically added by the Particle IDE.
 #include <clickButton.h>
 #include <DailyTimerSpark.h>
@@ -16,9 +21,9 @@
 
 bool DebugModeOn = false;
 
-uint8_t LCD_Address = 0x3f;
+uint8_t LCD_Address = 0x27;
 
-ThingSpeakLibrary::ThingSpeak thingspeak ("G5B1WAX50B9B1IBD");
+ThingSpeakLibrary::ThingSpeak thingspeak ("JWMS8QQGQJIEVGAZ");
 
 char Sensor1Addy[16];
 char Sensor2Addy[16];
@@ -27,12 +32,13 @@ char Sensor3Addy[16];
 double Sensor1TempC;
 double Sensor2TempC;
 double Sensor3TempC;
-char *Sensor1Addr = "28-0416947b6dff";
-char *Sensor2Addr = "28-051693dd50ff";
-char *Sensor3Addr = "28-031670d503ff";
+char *Sensor1Addr = "28-0316a33e4fff";
+char *Sensor2Addr = "28-0316a30c67ff";
+char *Sensor3Addr = "28-0416a2dee0ff"; // Internal PI enclosure temperature
+
 double Sensor1OnTmp = 36.000;
 double Sensor2OnTmp = 35.000;
-double Sensor3OnTmp = 25.000;
+double Sensor3OnTmp = 40.000;
 int Relay1SwitchTime = 300; //10 minutes ie. Only switch heat-mat back on after 10 min of being off.
 
 int Relay1On = 0;
@@ -47,7 +53,6 @@ int relay2 = D6;
 int relay3 = D5;
 int relay4 = D4;
 
-
 // the Button
 const int buttonPin1 = D16;
 ClickButton button1(buttonPin1, LOW, CLICKBTN_PULLUP);
@@ -55,13 +60,13 @@ int buttonFunction = 0;
 
 
 //DailyTimer timer3(8, 0,  10, 0, EVERY_DAY);
-DailyTimer timer4(7, 30,  19, 30, EVERY_DAY);
+DailyTimer timer4(0, 00,  0, 00, EVERY_DAY);
 bool timer3_LastState = false;
 bool timer4_LastState = false;
 
 int lastSecond = 0;
 bool pauseClock = false;
-bool BackLightOn = true;
+bool BackLightOn = false;
 
 time_t currTime = Time.now();
 time_t relay1SwitchTime = Time.now();
@@ -88,20 +93,28 @@ void handler(const char *topic, const char *data) {
 void setup(void)
 {
 
-    Publish("setup","Start");
-    
+
     strcpy(Sensor1Addy, Sensor1Addr);
     strcpy(Sensor2Addy, Sensor2Addr);
     strcpy(Sensor3Addy, Sensor3Addr);
     
     Particle.function("backlightOn", fnBacklightOn);
     Particle.function("backlightOff", fnBacklightOff);
+    //Particle.function("pauseClock", fnPauseClock);
+    //Particle.function("resumeClock", fnResumeClock);
     
+    //Particle.function("Relay1On", fnRelay1On);
+    //Particle.function("Relay1Off", fnRelay1Off);
+    //Particle.function("Relay2On", fnRelay2On);
+    //Particle.function("Relay2Off", fnRelay2Off);
+    //Particle.function("Relay3On", fnRelay3On);
+    //Particle.function("Relay3Off", fnRelay3Off);
     //Particle.function("Relay4On", fnRelay4On);
     //Particle.function("Relay4Off", fnRelay4Off);
     
     Particle.function("SwitchDebug", fnSwitchDebugMode);
-
+    //Particle.function("ShowMessage", fnShowMessage);
+    
     Particle.variable("Sensor1TempC", Sensor1TempC);
     Particle.variable("Sensor2TempC", Sensor2TempC);
     Particle.variable("Sensor3TempC", Sensor3TempC);
@@ -114,6 +127,7 @@ void setup(void)
     Particle.variable("Relay3On", Relay3On);
     Particle.variable("Relay4On", Relay4On);
     
+
     pinMode(relay1, OUTPUT);
     digitalWrite(relay1,HIGH);
     pinMode(relay2, OUTPUT);
@@ -206,9 +220,10 @@ void loop(void)
             lastSecond = Time.second();
             
             
-            if (lastSecond==0)
+            if (lastSecond==30)
             {
                   Particle.process();
+                  Sensor3TempC = 80;
                   
                   DS18B20 w1Device1 (Sensor1Addy);
                   Sensor1TempC = w1Device1.getTemp();
@@ -222,15 +237,15 @@ void loop(void)
                   Sensor3TempC = w1Device3.getTemp();
                   Sensor3TempC = round(Sensor3TempC*10)/10;
     
-                  Publish("Heat Mat",String(Sensor1TempC,0));
-                  delay(500);
-                  Publish("Heat Mat Switch Elapsed",String(relay1ElapsedTime));
-                  delay(500);
-                  Publish("Tank Warm Side",String(Sensor2TempC,0));
-                  delay(500);
-                  Publish("Tank Cool Side",String(Sensor3TempC,0));
-                  delay(500);
-              
+
+                  Publish("Tank Warm Side",String(Sensor1TempC,0));
+                  delay(1000);
+                  Publish("Warm Side Switch Elapsed", String(relay1ElapsedTime));
+                  delay(1000);
+                  Publish("Tank Cool Side", String(Sensor2TempC,0));
+                  delay(1000);
+                  Publish("Pi Internal Temp", String(Sensor3TempC,0));
+
                   if (Sensor1TempC <= Sensor1OnTmp)
                   {
                       if (Relay1On == 0 && relay1ElapsedTime > Relay1SwitchTime)
@@ -252,7 +267,7 @@ void loop(void)
                       if (Relay2On == 0)
                       {
                         intr = fnRelay2On("");
-                        intr = fnRelay3On("");          
+                        //intr = fnRelay3On("");          
                       }
                   }
                   else
@@ -260,19 +275,23 @@ void loop(void)
                       if (Relay2On == 1)
                       {
                         intr = fnRelay2Off("");
-                        intr = fnRelay3Off("");    
+                        //intr = fnRelay3Off("");    
                       }
                   }
                   
-                  
+                  if (Sensor3TempC >= Sensor3OnTmp)
+                  {
+                      Particle.publish("WARNING", String(Sensor3TempC), PRIVATE);
+                  }
+
                   // Send data back to ThingSpeak
                   bool valSet = thingspeak.recordValue(1, String(Sensor1TempC,0));
                   valSet = thingspeak.recordValue(2, String(Sensor2TempC,0));
-                  valSet = thingspeak.recordValue(3, String(Relay1On));
-                  valSet = thingspeak.recordValue(4, String(Relay2On));
-                  valSet = thingspeak.recordValue(5, String(Relay3On));
-                  valSet = thingspeak.recordValue(6, String(Relay4On));
-                  valSet = thingspeak.recordValue(7, String(Sensor3TempC,0));
+                  valSet = thingspeak.recordValue(3, String(Sensor3TempC,0));
+                  valSet = thingspeak.recordValue(4, String(Relay1On));
+                  valSet = thingspeak.recordValue(5, String(Relay2On));
+                  valSet = thingspeak.recordValue(6, String(Relay3On));
+                  valSet = thingspeak.recordValue(7, String(Relay4On));
                   bool valsSent = thingspeak.sendValues();
 
             }
@@ -317,14 +336,14 @@ void loop(void)
             if (Relay4On == 0)
                 { intr = fnRelay4On("");  }
             
-            Publish("DailyTimer","UV Lamp is ON");
+            Publish("DailyTimer", "UV Lamp is ON");
         }
         else
         {
             if (Relay4On == 1)
                 { intr = fnRelay4Off("");  }
             
-            Publish("DailyTimer","UV Lamp is OFF");
+            Publish("DailyTimer", "UV Lamp is OFF");
         }
         timer4_LastState = timerState;
         }
@@ -348,7 +367,7 @@ void loop(void)
         }
 
         if(buttonFunction == 2) Publish("buttonFunction", "DOUBLE click"); 
-
+        //Publish();
         if(buttonFunction == 3) Publish("buttonFunction", "TRIPLE click"); 
         
         if(buttonFunction == -1) Publish("buttonFunction", "SINGLE LONG click");
@@ -516,7 +535,6 @@ int Publish(String section, String message)
 {
     if (DebugModeOn) { Particle.publish(section, message, PRIVATE); }
 }
-
 //int showIPAddress(String command)
 //{
 //  lcd->clear();
