@@ -1,9 +1,21 @@
+
+//##########################################################
+//
+//  S N A K E 
+//  S N A K E 
+//  S N A K E 
+//
+//##########################################################
 // This #include statement was automatically added by the Particle IDE.
 #include <clickButton.h>
 #include <DailyTimerSpark.h>
 #include "thingspeak.h"
 #include "DS18B20.h"
 #include "LiquidCrystal_I2C_Spark.h"
+
+bool DebugModeOn = false;
+
+uint8_t LCD_Address = 0x3f;
 
 ThingSpeakLibrary::ThingSpeak thingspeak ("G5B1WAX50B9B1IBD");
 
@@ -33,6 +45,7 @@ int relay1 = D7;
 int relay2 = D6;
 int relay3 = D5;
 int relay4 = D4;
+
 
 // the Button
 const int buttonPin1 = D16;
@@ -74,7 +87,7 @@ void handler(const char *topic, const char *data) {
 void setup(void)
 {
 
-    Particle.publish("setup", "Start", PRIVATE);
+    Publish("setup","Start");
     
     strcpy(Sensor1Addy, Sensor1Addr);
     strcpy(Sensor2Addy, Sensor2Addr);
@@ -82,20 +95,12 @@ void setup(void)
     
     Particle.function("backlightOn", fnBacklightOn);
     Particle.function("backlightOff", fnBacklightOff);
-    //Particle.function("pauseClock", fnPauseClock);
-    //Particle.function("resumeClock", fnResumeClock);
     
-    //Particle.function("Relay1On", fnRelay1On);
-    //Particle.function("Relay1Off", fnRelay1Off);
-    //Particle.function("Relay2On", fnRelay2On);
-    //Particle.function("Relay2Off", fnRelay2Off);
-    //Particle.function("Relay3On", fnRelay3On);
-    //Particle.function("Relay3Off", fnRelay3Off);
-    Particle.function("Relay4On", fnRelay4On);
-    Particle.function("Relay4Off", fnRelay4Off);
+    //Particle.function("Relay4On", fnRelay4On);
+    //Particle.function("Relay4Off", fnRelay4Off);
     
-    //Particle.function("ShowMessage", fnShowMessage);
-    
+    Particle.function("SwitchDebug", fnSwitchDebugMode);
+
     Particle.variable("Sensor1TempC", Sensor1TempC);
     Particle.variable("Sensor2TempC", Sensor2TempC);
     Particle.variable("Sensor3TempC", Sensor3TempC);
@@ -107,7 +112,7 @@ void setup(void)
     Particle.variable("Relay2On", Relay2On);
     Particle.variable("Relay3On", Relay3On);
     Particle.variable("Relay4On", Relay4On);
-
+    
     pinMode(relay1, OUTPUT);
     digitalWrite(relay1,HIGH);
     pinMode(relay2, OUTPUT);
@@ -130,7 +135,7 @@ void setup(void)
 
     Particle.process();
  
-    lcd = new LiquidCrystal_I2C(0x3f, 16, 2);
+    lcd = new LiquidCrystal_I2C(LCD_Address, 16, 2);
     lcd->init();
     //lcd->backlight();
     lcd->noBacklight();
@@ -216,10 +221,14 @@ void loop(void)
                   Sensor3TempC = w1Device3.getTemp();
                   Sensor3TempC = round(Sensor3TempC*10)/10;
     
-                  Particle.publish("Heat Mat", String(Sensor1TempC,0), PRIVATE);
-                  Particle.publish("Heat Mat Switch Elapsed", String(relay1ElapsedTime), PRIVATE);
-                  Particle.publish("Tank Warm Side", String(Sensor2TempC,0), PRIVATE);
-                  Particle.publish("Tank Cool Side", String(Sensor3TempC,0), PRIVATE);
+                  Publish("Heat Mat",String(Sensor1TempC,0));
+                  delay(500);
+                  Publish("Heat Mat Switch Elapsed",String(relay1ElapsedTime));
+                  delay(500);
+                  Publish("Tank Warm Side",String(Sensor2TempC,0));
+                  delay(500);
+                  Publish("Tank Cool Side",String(Sensor3TempC,0));
+                  delay(500);
               
                   if (Sensor1TempC <= Sensor1OnTmp)
                   {
@@ -307,14 +316,14 @@ void loop(void)
             if (Relay4On == 0)
                 { intr = fnRelay4On("");  }
             
-            Particle.publish("DailyTimer", "UV Lamp is ON", 60, PRIVATE);
+            Publish("DailyTimer","UV Lamp is ON");
         }
         else
         {
             if (Relay4On == 1)
                 { intr = fnRelay4Off("");  }
             
-            Particle.publish("DailyTimer", "UV Lamp is OFF", 60, PRIVATE);
+            Publish("DailyTimer","UV Lamp is OFF");
         }
         timer4_LastState = timerState;
         }
@@ -337,15 +346,15 @@ void loop(void)
                 { intr = fnBacklightOn(""); }
         }
 
-        if(buttonFunction == 2) Particle.publish("loop-error", "DOUBLE click", PRIVATE); 
+        if(buttonFunction == 2) Publish("buttonFunction", "DOUBLE click"); 
+
+        if(buttonFunction == 3) Publish("buttonFunction", "TRIPLE click"); 
         
-        if(buttonFunction == 3) Particle.publish("loop-error", "TRIPLE click", PRIVATE); 
+        if(buttonFunction == -1) Publish("buttonFunction", "SINGLE LONG click");
         
-        if(buttonFunction == -1) Particle.publish("loop-error", "SINGLE LONG click", PRIVATE);
+        if(buttonFunction == -2) Publish("buttonFunction", "DOUBLE LONG click");
         
-        if(buttonFunction == -2) Particle.publish("loop-error", "DOUBLE LONG click", PRIVATE);
-        
-        if(buttonFunction == -3) Particle.publish("loop-error", "TRIPLE LONG click", PRIVATE);
+        if(buttonFunction == -3) Publish("buttonFunction", "TRIPLE LONG click");
         
         buttonFunction = 0;
         delay(5);
@@ -353,7 +362,7 @@ void loop(void)
     } 
     catch (const char* msg) 
     {
-          Particle.publish("loop-error", String(msg), PRIVATE);
+          Publish("loop-error", String(msg));
     }
             
 }
@@ -393,7 +402,7 @@ int fnRelay1On(String command)
     lcd->setCursor(0,1);
     lcd->print("HEAT MAT ON....");
     delay(2000);
-    Particle.publish("Heat Mat", "Heat Mat ON", PRIVATE);
+    Publish("Heat Mat", "Heat Mat ON");
     pauseClock = false;
     return 1;
 }
@@ -443,7 +452,7 @@ int fnRelay1Off(String command)
     lcd->setCursor(0,1);
     lcd->print("HEAT MAT OFF....");
     delay(2000);
-    Particle.publish("Heat Mat", "Heat Mat OFF", PRIVATE);
+    Publish("Heat Mat", "Heat Mat OFF");
     pauseClock = false;
     return 1;
 }
@@ -494,6 +503,17 @@ int fnShowMessage(String message)
     delay(3000);
     pauseClock = false;
     return 1;
+}
+
+int fnSwitchDebugMode(String command)
+{
+    DebugModeOn = !DebugModeOn;
+    return DebugModeOn;
+}
+
+int Publish(String section, String message)
+{
+    if (DebugModeOn) { Particle.publish(section, message, PRIVATE); }
 }
 
 //int showIPAddress(String command)
