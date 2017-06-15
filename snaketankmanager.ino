@@ -1,12 +1,17 @@
 
 //##########################################################
 //
-//  S N A K E 
-//  S N A K E 
-//  S N A K E 
+//   SSSSS    N     N     AAA     K     K   EEEEEEE
+//  S     S   NN    N    A   A    K    K    E     
+//   S        N N   N   A     A   K   K     E
+//    SSS     N  N  N   AAAAAAA   KKKK      EEEEEEE
+//       S    N   N N   A     A   K   K     E
+//  S     S   N    NN   A     A   K    K    E
+//   SSSSS    N     N   A     A   K     K   EEEEEEE
 //
-// v1.3
 //##########################################################
+// v1.4
+//
 // This #include statement was automatically added by the Particle IDE.
 #include <clickButton.h>
 #include <DailyTimerSpark.h>
@@ -14,7 +19,24 @@
 #include "DS18B20.h"
 #include "LiquidCrystal_I2C_Spark.h"
 
+//##########################################################
+// User configurable values
+//##########################################################
+
 bool DebugModeOn = false;
+
+double Sensor1OnTmp = 36.000;
+double Sensor2OnTmp = 35.000;
+double Sensor3OnTmp = 25.000;
+int Relay1SwitchTime = 300; //10 minutes ie. Only switch heat-mat back on after 10 min of being off.
+
+//DailyTimer timer3(8, 0,  10, 0, EVERY_DAY);
+DailyTimer timer4(7, 30,  19, 30, EVERY_DAY);
+
+
+//##########################################################
+// Hardware and Software addresses
+//##########################################################
 
 uint8_t LCD_Address = 0x3f;
 
@@ -30,11 +52,13 @@ double Sensor3TempC;
 char *Sensor1Addr = "28-0416947b6dff";
 char *Sensor2Addr = "28-051693dd50ff";
 char *Sensor3Addr = "28-031670d503ff";
-double Sensor1OnTmp = 36.000;
-double Sensor2OnTmp = 35.000;
-double Sensor3OnTmp = 25.000;
-int Relay1SwitchTime = 300; //10 minutes ie. Only switch heat-mat back on after 10 min of being off.
 
+// the Button
+const int buttonPin1 = D16;
+ClickButton button1(buttonPin1, LOW, CLICKBTN_PULLUP);
+int buttonFunction = 0;
+
+//##########################################################
 int Relay1On = 0;
 int Relay2On = 0;
 int Relay3On = 0;
@@ -48,15 +72,7 @@ int relay3 = D5;
 int relay4 = D4;
 
 
-// the Button
-const int buttonPin1 = D16;
-ClickButton button1(buttonPin1, LOW, CLICKBTN_PULLUP);
-int buttonFunction = 0;
-
-
-//DailyTimer timer3(8, 0,  10, 0, EVERY_DAY);
-DailyTimer timer4(7, 30,  19, 30, EVERY_DAY);
-bool timer3_LastState = false;
+//bool timer3_LastState = false;
 bool timer4_LastState = false;
 
 int lastSecond = 0;
@@ -79,11 +95,9 @@ uint8_t check[8] = {0x0,0x1,0x3,0x16,0x1c,0x8,0x0};
 uint8_t cross[8] = {0x0,0x1b,0xe,0x4,0xe,0x1b,0x0};
 uint8_t retarrow[8] = { 0x1,0x1,0x5,0x9,0x1f,0x8,0x4};
 
-
-
-void handler(const char *topic, const char *data) {
-    Particle.publish("handler", "received " + String(topic) + ": " + String(data), PRIVATE);
-}
+//void handler(const char *topic, const char *data) {
+//    Particle.publish("handler", "received " + String(topic) + ": " + String(data), PRIVATE);
+//}
 
 void setup(void)
 {
@@ -288,27 +302,6 @@ void loop(void)
         ////////////////////////////////////////////////////////////////////////////////////////////
         bool timerState;
         
-//        timerState = timer3.isActive();  //State Change method this block
-//        if(timerState != timer3_LastState)
-//        {
-//        if(timerState)
-//        {
-//            if (Relay3On == 0)
-//                { intr = fnRelay3On("");  }
-//            
-//            Particle.publish("DailyTimer", "Relay 3 is ON", 60, PRIVATE);
-//        }
-//        else
-//        {
-//            if (Relay3On == 1)
-//                { intr = fnRelay3Off("");  }
-//            
-//          Particle.publish("DailyTimer", "Relay 3 is OFF", 60, PRIVATE);
-//        }
-//        timer3_LastState = timerState;
-//        }
-
-
         timerState = timer4.isActive();  //State Change method this block
         if(timerState != timer4_LastState)
         {
