@@ -10,7 +10,7 @@
 //
 //##########################################################
 //
-// v1.0
+// v1.4
 //
 // This #include statement was automatically added by the Particle IDE.
 #include <clickButton.h>
@@ -19,8 +19,25 @@
 #include "DS18B20.h"
 #include "LiquidCrystal_I2C_Spark.h"
 
+//##########################################################
+// User configurable values
+//##########################################################
 bool DebugModeOn = false;
 
+double Sensor1OnTmp = 36.000; // Tank warm side
+double Sensor2OnTmp = 35.000; // Tank cool side
+double Sensor3OnTmp = 40.000; //  Internal Pi temp
+int Relay1SwitchTime = 300; //5 minutes ie. Only switch heat-lamp1 back on after 5 min of being off.
+
+DailyTimer timer1(7, 30,  19, 30, EVERY_DAY);
+DailyTimer timer2(7, 30,  19, 30, EVERY_DAY);
+DailyTimer timer3(7, 30,  19, 30, EVERY_DAY);
+DailyTimer timer4(7, 30,  19, 30, EVERY_DAY);
+
+
+//##########################################################
+// Hardware and Software addresses
+//##########################################################
 uint8_t LCD_Address = 0x27;
 
 ThingSpeakLibrary::ThingSpeak thingspeak ("JWMS8QQGQJIEVGAZ");
@@ -32,14 +49,20 @@ char Sensor3Addy[16];
 double Sensor1TempC;
 double Sensor2TempC;
 double Sensor3TempC;
-char *Sensor1Addr = "28-0316a33e4fff";
-char *Sensor2Addr = "28-0316a30c67ff";
+char *Sensor1Addr = "28-0316a33e4fff"; // Tank warm side
+char *Sensor2Addr = "28-0316a30c67ff"; // Tank cool side
 char *Sensor3Addr = "28-0416a2dee0ff"; // Internal PI enclosure temperature
 
-double Sensor1OnTmp = 36.000;
-double Sensor2OnTmp = 35.000;
-double Sensor3OnTmp = 40.000;
-int Relay1SwitchTime = 300; //10 minutes ie. Only switch heat-mat back on after 10 min of being off.
+// the Button
+const int buttonPin1 = D16;
+ClickButton button1(buttonPin1, LOW, CLICKBTN_PULLUP);
+int buttonFunction = 0;
+//##########################################################
+
+bool timer1_LastState = false;
+bool timer2_LastState = false;
+bool timer3_LastState = false;
+bool timer4_LastState = false;
 
 int Relay1On = 0;
 int Relay2On = 0;
@@ -52,17 +75,6 @@ int relay1 = D7;
 int relay2 = D6;
 int relay3 = D5;
 int relay4 = D4;
-
-// the Button
-const int buttonPin1 = D16;
-ClickButton button1(buttonPin1, LOW, CLICKBTN_PULLUP);
-int buttonFunction = 0;
-
-
-//DailyTimer timer3(8, 0,  10, 0, EVERY_DAY);
-DailyTimer timer4(0, 00,  0, 00, EVERY_DAY);
-bool timer3_LastState = false;
-bool timer4_LastState = false;
 
 int lastSecond = 0;
 bool pauseClock = false;
@@ -93,28 +105,17 @@ void handler(const char *topic, const char *data) {
 void setup(void)
 {
 
-
+    Publish("setup","Start");
+    
     strcpy(Sensor1Addy, Sensor1Addr);
     strcpy(Sensor2Addy, Sensor2Addr);
     strcpy(Sensor3Addy, Sensor3Addr);
     
     Particle.function("backlightOn", fnBacklightOn);
     Particle.function("backlightOff", fnBacklightOff);
-    //Particle.function("pauseClock", fnPauseClock);
-    //Particle.function("resumeClock", fnResumeClock);
-    
-    //Particle.function("Relay1On", fnRelay1On);
-    //Particle.function("Relay1Off", fnRelay1Off);
-    //Particle.function("Relay2On", fnRelay2On);
-    //Particle.function("Relay2Off", fnRelay2Off);
-    //Particle.function("Relay3On", fnRelay3On);
-    //Particle.function("Relay3Off", fnRelay3Off);
-    //Particle.function("Relay4On", fnRelay4On);
-    //Particle.function("Relay4Off", fnRelay4Off);
-    
+
     Particle.function("SwitchDebug", fnSwitchDebugMode);
-    //Particle.function("ShowMessage", fnShowMessage);
-    
+
     Particle.variable("Sensor1TempC", Sensor1TempC);
     Particle.variable("Sensor2TempC", Sensor2TempC);
     Particle.variable("Sensor3TempC", Sensor3TempC);
@@ -144,8 +145,9 @@ void setup(void)
     button1.multiclickTime = 250;  // Time limit for multi clicks
     button1.longClickTime  = 1000; // time until "held-down clicks" register
 
-     
-    //timer3.begin();
+    timer1.begin();
+    timer2.begin();
+    timer3.begin();
     timer4.begin();
 
     Particle.process();
@@ -178,7 +180,8 @@ void loop(void)
       relay1ElapsedTime = currTime - relay1SwitchTime;
 
       int intr;
-      
+      bool timerState;
+       
       if (Time.second() != lastSecond)
         if (!pauseClock)
           {
@@ -246,38 +249,57 @@ void loop(void)
                   delay(1000);
                   Publish("Pi Internal Temp", String(Sensor3TempC,0));
 
-                  if (Sensor1TempC <= Sensor1OnTmp)
-                  {
-                      if (Relay1On == 0 && relay1ElapsedTime > Relay1SwitchTime)
-                      {
-                        intr = fnRelay1On("");          
-                      }
-                  }
-                  else
-                  {
-                      if (Relay1On == 1)
-                      {
-                        intr = fnRelay1Off("");    
-                      }
-                  }
+                  timerState = timer1.isActive();  //State Change method this block
+                  //if(timerState != timer1_LastState)
+                  //{
+                        if(timerState)
+                        {
+                            if (Sensor1TempC <= Sensor1OnTmp)
+                            {
+                              if (Relay1On == 0 && relay1ElapsedTime > Relay1SwitchTime)
+                              {
+                                intr = fnRelay1On("");          
+                              }
+                            }
+                            else
+                            {
+                              if (Relay1On == 1)
+                              {
+                                intr = fnRelay1Off("");    
+                              }
+                            }
+
+                        }
+                        else
+                        {
+                            if (Relay1On == 1)
+                                { 
+                                    intr = fnRelay1Off("");  
+                                    Publish("DailyTimer", "Relay 1 Off");
+                                }
+                            
+                            
+                        }
+                        timer1_LastState = timerState;
+                  //}
 
 
-                  if (Sensor2TempC <= Sensor2OnTmp)
-                  {
-                      if (Relay2On == 0)
-                      {
-                        intr = fnRelay2On("");
+                  //if (Sensor2TempC <= Sensor2OnTmp)
+                  //{
+                    //  if (Relay2On == 0)
+                     // {
+                      //  intr = fnRelay2On("");
                         //intr = fnRelay3On("");          
-                      }
-                  }
-                  else
-                  {
-                      if (Relay2On == 1)
-                      {
-                        intr = fnRelay2Off("");
+                     // }
+                  //}
+                  //else
+                  //{
+                    //  if (Relay2On == 1)
+                      //{
+                        //intr = fnRelay2Off("");
                         //intr = fnRelay3Off("");    
-                      }
-                  }
+                      //}
+                 // }
                   
                   if (Sensor3TempC >= Sensor3OnTmp)
                   {
@@ -305,27 +327,48 @@ void loop(void)
         ////////////////////////////////////////////////////////////////////////////////////////////
         // Background Timer code
         ////////////////////////////////////////////////////////////////////////////////////////////
-        bool timerState;
+       
+
         
-//        timerState = timer3.isActive();  //State Change method this block
-//        if(timerState != timer3_LastState)
-//        {
-//        if(timerState)
-//        {
-//            if (Relay3On == 0)
-//                { intr = fnRelay3On("");  }
-//            
-//            Particle.publish("DailyTimer", "Relay 3 is ON", 60, PRIVATE);
-//        }
-//        else
-//        {
-//            if (Relay3On == 1)
-//                { intr = fnRelay3Off("");  }
-//            
-//          Particle.publish("DailyTimer", "Relay 3 is OFF", 60, PRIVATE);
-//        }
-//        timer3_LastState = timerState;
-//        }
+        timerState = timer2.isActive();  //State Change method this block
+        if(timerState != timer2_LastState)
+        {
+            if(timerState)
+            {
+                if (Relay2On == 0)
+                    { intr = fnRelay2On("");  }
+                
+                Publish("DailyTimer", "Relay 2 On");
+            }
+            else
+            {
+                if (Relay2On == 1)
+                    { intr = fnRelay2Off("");  }
+                
+              Publish("DailyTimer", "Relay 2 Off");
+            }
+            timer2_LastState = timerState;
+        }
+        
+        timerState = timer3.isActive();  //State Change method this block
+        if(timerState != timer3_LastState)
+        {
+            if(timerState)
+            {
+                if (Relay3On == 0)
+                    { intr = fnRelay3On("");  }
+                
+                Publish("DailyTimer", "Relay 3 On");
+            }
+            else
+            {
+                if (Relay3On == 1)
+                    { intr = fnRelay3Off("");  }
+                
+              Publish("DailyTimer", "Relay 3 Off");
+            }
+            timer3_LastState = timerState;
+        }
 
 
         timerState = timer4.isActive();  //State Change method this block
@@ -336,14 +379,14 @@ void loop(void)
             if (Relay4On == 0)
                 { intr = fnRelay4On("");  }
             
-            Publish("DailyTimer", "UV Lamp is ON");
+            Publish("DailyTimer", "Relay 4 On");
         }
         else
         {
             if (Relay4On == 1)
                 { intr = fnRelay4Off("");  }
             
-            Publish("DailyTimer", "UV Lamp is OFF");
+            Publish("DailyTimer", "Relay 4 Off");
         }
         timer4_LastState = timerState;
         }
@@ -420,9 +463,9 @@ int fnRelay1On(String command)
     digitalWrite(relay1, LOW);
     relay1SwitchTime = Time.now();
     lcd->setCursor(0,1);
-    lcd->print("HEAT MAT ON....");
+    lcd->print("HEAT LAMP 1 ON..");
     delay(2000);
-    Publish("Heat Mat", "Heat Mat ON");
+    Publish("Heat Lamp 1", "Heat Lamp 1 ON");
     pauseClock = false;
     return 1;
 }
@@ -433,7 +476,7 @@ int fnRelay2On(String command)
     pauseClock = true;
     digitalWrite(relay2, LOW);
     lcd->setCursor(0,1);
-    lcd->print("HEAT LAMP 1 ON..");
+    lcd->print("HEAT LAMP 2 ON..");
     delay(2000);
     pauseClock = false;
     return 1;
@@ -445,7 +488,7 @@ int fnRelay3On(String command)
     pauseClock = true;
     digitalWrite(relay3, LOW);
     lcd->setCursor(0,1);
-    lcd->print("HEAT LAMP 2 ON..");
+    lcd->print("LIGHT ON..");
     delay(2000);
     pauseClock = false;
     return 1;
@@ -457,7 +500,7 @@ int fnRelay4On(String command)
     pauseClock = true;
     digitalWrite(relay4, LOW);
     lcd->setCursor(0,1);
-    lcd->print("UV LAMP ON.....");
+    lcd->print("HEAT MAT ON.....");
     delay(2000);
     pauseClock = false;
     return 1;
@@ -470,9 +513,9 @@ int fnRelay1Off(String command)
     digitalWrite(relay1, HIGH);
     relay1SwitchTime = Time.now();
     lcd->setCursor(0,1);
-    lcd->print("HEAT MAT OFF....");
+    lcd->print("HEAT LAMP 1 OFF.");
     delay(2000);
-    Publish("Heat Mat", "Heat Mat OFF");
+    Publish("Heat Lamp 1", "Heat Lamp 1 OFF");
     pauseClock = false;
     return 1;
 }
@@ -507,7 +550,7 @@ int fnRelay4Off(String command)
     pauseClock = true;
     digitalWrite(relay4, HIGH);
     lcd->setCursor(0,1);
-    lcd->print("UV LAMP OFF....");
+    lcd->print("HEAT MAT OFF....");
     delay(2000);
     pauseClock = false;
     return 1;
@@ -517,8 +560,6 @@ int fnShowMessage(String message)
 {
     pauseClock = true;
     lcd->setCursor(0,1);
-    //lcd->print("                ");
-    //delay(500);
     lcd->print(message);
     delay(3000);
     pauseClock = false;
