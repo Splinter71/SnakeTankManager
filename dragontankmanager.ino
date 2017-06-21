@@ -10,7 +10,7 @@
 //
 //##########################################################
 //
-// v1.4
+// v1.5
 //
 // This #include statement was automatically added by the Particle IDE.
 #include <clickButton.h>
@@ -25,14 +25,13 @@
 bool DebugModeOn = false;
 
 double Sensor1OnTmp = 36.000; // Tank warm side
-double Sensor2OnTmp = 35.000; // Tank cool side
+double Sensor2OnTmp = 30.000; // Tank cool side
 double Sensor3OnTmp = 40.000; //  Internal Pi temp
 int Relay1SwitchTime = 300; //5 minutes ie. Only switch heat-lamp1 back on after 5 min of being off.
 
 DailyTimer timer1(7, 30,  19, 30, EVERY_DAY);
 DailyTimer timer2(7, 30,  19, 30, EVERY_DAY);
 DailyTimer timer3(7, 30,  19, 30, EVERY_DAY);
-DailyTimer timer4(7, 30,  19, 30, EVERY_DAY);
 
 
 //##########################################################
@@ -62,7 +61,6 @@ int buttonFunction = 0;
 bool timer1_LastState = false;
 bool timer2_LastState = false;
 bool timer3_LastState = false;
-bool timer4_LastState = false;
 
 int Relay1On = 0;
 int Relay2On = 0;
@@ -148,7 +146,6 @@ void setup(void)
     timer1.begin();
     timer2.begin();
     timer3.begin();
-    timer4.begin();
 
     Particle.process();
  
@@ -313,7 +310,7 @@ void loop(void)
                   valSet = thingspeak.recordValue(4, String(Relay1On));
                   valSet = thingspeak.recordValue(5, String(Relay2On));
                   valSet = thingspeak.recordValue(6, String(Relay3On));
-                  valSet = thingspeak.recordValue(7, String(Relay4On));
+                  //valSet = thingspeak.recordValue(7, String(Relay4On));
                   bool valsSent = thingspeak.sendValues();
 
             }
@@ -338,14 +335,14 @@ void loop(void)
                 if (Relay2On == 0)
                     { intr = fnRelay2On("");  }
                 
-                Publish("DailyTimer", "Relay 2 On");
+                Publish("DailyTimer", "Heat Lamp 2 On");
             }
             else
             {
                 if (Relay2On == 1)
                     { intr = fnRelay2Off("");  }
                 
-              Publish("DailyTimer", "Relay 2 Off");
+              Publish("DailyTimer", "Heat Lamp 2 Off");
             }
             timer2_LastState = timerState;
         }
@@ -358,38 +355,18 @@ void loop(void)
                 if (Relay3On == 0)
                     { intr = fnRelay3On("");  }
                 
-                Publish("DailyTimer", "Relay 3 On");
+                Publish("DailyTimer", "UV Light On");
             }
             else
             {
                 if (Relay3On == 1)
                     { intr = fnRelay3Off("");  }
                 
-              Publish("DailyTimer", "Relay 3 Off");
+              Publish("DailyTimer", "UV Light Off");
             }
             timer3_LastState = timerState;
         }
 
-
-        timerState = timer4.isActive();  //State Change method this block
-        if(timerState != timer4_LastState)
-        {
-        if(timerState)
-        {
-            if (Relay4On == 0)
-                { intr = fnRelay4On("");  }
-            
-            Publish("DailyTimer", "Relay 4 On");
-        }
-        else
-        {
-            if (Relay4On == 1)
-                { intr = fnRelay4Off("");  }
-            
-            Publish("DailyTimer", "Relay 4 Off");
-        }
-        timer4_LastState = timerState;
-        }
 
         ////////////////////////////////////////////////////////////////////////////////////////////
         // Push button code
@@ -463,9 +440,9 @@ int fnRelay1On(String command)
     digitalWrite(relay1, LOW);
     relay1SwitchTime = Time.now();
     lcd->setCursor(0,1);
-    lcd->print("HEAT LAMP 1 ON..");
+    lcd->print("CERAMIC LAMP ON.");
     delay(2000);
-    Publish("Heat Lamp 1", "Heat Lamp 1 ON");
+    Publish("Ceramic Lamp", "Ceramic Lamp ON");
     pauseClock = false;
     return 1;
 }
@@ -476,8 +453,9 @@ int fnRelay2On(String command)
     pauseClock = true;
     digitalWrite(relay2, LOW);
     lcd->setCursor(0,1);
-    lcd->print("HEAT LAMP 2 ON..");
+    lcd->print("HEAT LAMP ON....");
     delay(2000);
+    Publish("Heat Lamp", "Heat Lamp ON");
     pauseClock = false;
     return 1;
 }
@@ -488,8 +466,9 @@ int fnRelay3On(String command)
     pauseClock = true;
     digitalWrite(relay3, LOW);
     lcd->setCursor(0,1);
-    lcd->print("LIGHT ON..");
+    lcd->print("UV LIGHT ON.....");
     delay(2000);
+    Publish("UV Light", "UV Light ON");
     pauseClock = false;
     return 1;
 }
@@ -500,8 +479,9 @@ int fnRelay4On(String command)
     pauseClock = true;
     digitalWrite(relay4, LOW);
     lcd->setCursor(0,1);
-    lcd->print("HEAT MAT ON.....");
+    lcd->print("Relay 4 On");
     delay(2000);
+    Publish("Relay 4", "Relay 4 ON");
     pauseClock = false;
     return 1;
 }
@@ -513,9 +493,9 @@ int fnRelay1Off(String command)
     digitalWrite(relay1, HIGH);
     relay1SwitchTime = Time.now();
     lcd->setCursor(0,1);
-    lcd->print("HEAT LAMP 1 OFF.");
+    lcd->print("CERAMIC LAMP OFF");
     delay(2000);
-    Publish("Heat Lamp 1", "Heat Lamp 1 OFF");
+    Publish("Ceramic Lamp", "Ceramic Lamp OFF");
     pauseClock = false;
     return 1;
 }
@@ -526,8 +506,9 @@ int fnRelay2Off(String command)
     pauseClock = true;
     digitalWrite(relay2, HIGH);
     lcd->setCursor(0,1);
-    lcd->print("HEAT LAMP 1 OFF.");
+    lcd->print("HEAT LAMP OFF...");
     delay(2000);
+    Publish("Heat Lamp", "Heat Lamp OFF");
     pauseClock = false;
     return 1;
 }
@@ -538,8 +519,9 @@ int fnRelay3Off(String command)
     pauseClock = true;
     digitalWrite(relay3, HIGH);
     lcd->setCursor(0,1);
-    lcd->print("HEAT LAMP 2 OFF.");
+    lcd->print("UV LIGHT OFF....");
     delay(2000);
+    Publish("UV Light", "UV Light OFF");
     pauseClock = false;
     return 1;
 }
@@ -550,8 +532,9 @@ int fnRelay4Off(String command)
     pauseClock = true;
     digitalWrite(relay4, HIGH);
     lcd->setCursor(0,1);
-    lcd->print("HEAT MAT OFF....");
+    lcd->print("RELAY 4 OFF.....");
     delay(2000);
+    Publish("Relay 4", "Relay 4 OFF");
     pauseClock = false;
     return 1;
 }
