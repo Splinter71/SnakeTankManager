@@ -1,4 +1,3 @@
-
 //##########################################################
 //
 //   SSSSS    N     N     AAA     K     K   EEEEEEE
@@ -10,7 +9,7 @@
 //   SSSSS    N     N   A     A   K     K   EEEEEEE
 //
 //##########################################################
-// v1.4
+// v1.5
 //
 // This #include statement was automatically added by the Particle IDE.
 #include <clickButton.h>
