@@ -10,7 +10,7 @@
 //
 //##########################################################
 //
-// v1.5
+// v1.6
 //
 // This #include statement was automatically added by the Particle IDE.
 #include <clickButton.h>
@@ -29,7 +29,7 @@ double Sensor2OnTmp = 30.000; // Tank cool side
 double Sensor3OnTmp = 40.000; //  Internal Pi temp
 int Relay1SwitchTime = 300; //5 minutes ie. Only switch heat-lamp1 back on after 5 min of being off.
 
-DailyTimer timer1(7, 30,  19, 30, EVERY_DAY);
+//DailyTimer timer1(7, 30,  19, 30, EVERY_DAY);
 DailyTimer timer2(7, 30,  19, 30, EVERY_DAY);
 DailyTimer timer3(7, 30,  19, 30, EVERY_DAY);
 
@@ -58,7 +58,7 @@ ClickButton button1(buttonPin1, LOW, CLICKBTN_PULLUP);
 int buttonFunction = 0;
 //##########################################################
 
-bool timer1_LastState = false;
+//bool timer1_LastState = false;
 bool timer2_LastState = false;
 bool timer3_LastState = false;
 
@@ -143,7 +143,7 @@ void setup(void)
     button1.multiclickTime = 250;  // Time limit for multi clicks
     button1.longClickTime  = 1000; // time until "held-down clicks" register
 
-    timer1.begin();
+    //timer1.begin();
     timer2.begin();
     timer3.begin();
 
@@ -246,58 +246,23 @@ void loop(void)
                   delay(1000);
                   Publish("Pi Internal Temp", String(Sensor3TempC,0));
 
-                  timerState = timer1.isActive();  //State Change method this block
-                  //if(timerState != timer1_LastState)
-                  //{
-                        if(timerState)
-                        {
-                            if (Sensor1TempC <= Sensor1OnTmp)
-                            {
-                              if (Relay1On == 0 && relay1ElapsedTime > Relay1SwitchTime)
-                              {
-                                intr = fnRelay1On("");          
-                              }
-                            }
-                            else
-                            {
-                              if (Relay1On == 1)
-                              {
-                                intr = fnRelay1Off("");    
-                              }
-                            }
 
-                        }
-                        else
-                        {
-                            if (Relay1On == 1)
-                                { 
-                                    intr = fnRelay1Off("");  
-                                    Publish("DailyTimer", "Relay 1 Off");
-                                }
-                            
-                            
-                        }
-                        timer1_LastState = timerState;
-                  //}
+                  if (Sensor1TempC <= Sensor1OnTmp)
+                  {
+                      if (Relay1On == 0 && relay1ElapsedTime > Relay1SwitchTime)
+                      {
+                        intr = fnRelay1On("");          
+                      }
+                  }
+                  else
+                  {
+                      if (Relay1On == 1)
+                      {
+                        intr = fnRelay1Off("");    
+                      }
+                  }
 
 
-                  //if (Sensor2TempC <= Sensor2OnTmp)
-                  //{
-                    //  if (Relay2On == 0)
-                     // {
-                      //  intr = fnRelay2On("");
-                        //intr = fnRelay3On("");          
-                     // }
-                  //}
-                  //else
-                  //{
-                    //  if (Relay2On == 1)
-                      //{
-                        //intr = fnRelay2Off("");
-                        //intr = fnRelay3Off("");    
-                      //}
-                 // }
-                  
                   if (Sensor3TempC >= Sensor3OnTmp)
                   {
                       Particle.publish("WARNING", String(Sensor3TempC), PRIVATE);
